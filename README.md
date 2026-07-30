@@ -58,3 +58,18 @@ graph TD
     Batch <-->|"비용 및 위협 분석 요청"| Gemini
     Batch -->|"일일 브리핑 발송"| Discord
 ```
+
+
+### 🏗️ 아키텍처 주요 워크플로우
+
+1. **위협 감지 및 컨텍스트 수집 (Monitoring & Context)**
+   Grafana와 Loki가 인프라의 이상 징후를 감지하여 Bifrost(FastAPI)로 알림을 보냅니다. 알림을 받은 Bifrost는 즉시 AWS CloudWatch, GitHub API, K8s 환경에 접근하여 장애와 관련된 추가 컨텍스트(로그, 메트릭, 배포 이력)를 수집합니다.
+
+2. **AI 근본 원인 분석 (AI RCA)**
+   수집된 데이터는 Google Gemini AI 모델에 전달되어, 에러 로그 분석 및 근본 원인(Root Cause) 추론, 그리고 SRE 관점의 조치 사항을 도출합니다. (API 장애 시 우회하는 Fallback 로직 적용)
+
+3. **실시간 관제 및 승인 (Observability & Approval)**
+   분석된 리포트는 Discord와 Streamlit 대시보드에 실시간으로 동기화됩니다. SRE 관리자는 디스코드에서 위험 여부를 확인하고 원클릭으로 차단을 승인할 수 있습니다.
+
+4. **자동 방어 및 사후 보고 (Auto-Remediation & Post-mortem)**
+   관리자의 승인이 오탐(내부망 IP 등)이 아닌지 Risk Check를 거친 후, AWS WAF API를 호출해 인프라 레벨에서 악성 IP를 영구 차단합니다. 상황이 종료되면 타임라인이 요약된 사후 보고서가 자동 생성됩니다.
