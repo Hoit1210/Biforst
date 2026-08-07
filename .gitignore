@@ -1,4 +1,24 @@
-venv/
-__pycache__/
-*.pyc
+# Runtime secrets and local state
+.env
 incident_data.json
+*.log
+nohup.out
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
