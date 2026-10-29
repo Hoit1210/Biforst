@@ -39,6 +39,36 @@ flowchart TD
 
 [클라우드 구성도와 구성 요소 설명](docs/cloud-architecture.md)
 
+## 대표 검증 화면
+
+클라우드 인프라 구축과 운영 점검 과정에서 남긴 실제 실행 화면입니다. 공개용 캡처는 민감정보를 가렸으며, 설명은 화면에서 확인할 수 있는 범위로 작성했습니다.
+
+[전체 검증 화면 5개와 확인 범위](docs/evidence-gallery.md)
+
+### Grafana 알림 전달
+
+Grafana의 테스트 알림 전송 성공 메시지와 Discord 알림 수신 화면입니다.
+
+![Grafana 알림 전달](docs/images/01-grafana-alert.png)
+
+### CPU·커밋 정보와 로그 빈 응답
+
+CPU 사용률과 최근 커밋 정보가 보고서에 표시됩니다. 이 시점의 로그는 빈 응답이므로 정상 로그 수집의 증거로 해석하지 않습니다.
+
+![CPU·커밋 정보와 로그 빈 응답](docs/images/02-incident-context.png)
+
+### Streamlit 대시보드
+
+Streamlit에 대상 IP, CPU, 대응 상태와 분석 결과가 표시됩니다. 화면의 분석은 Gemini 503 오류에 따른 규칙 기반 Fallback이며 로그 영역은 준비 중 상태입니다.
+
+![Streamlit 대시보드](docs/images/04-dashboard.png)
+
+### 장애 대응 타임라인
+
+모의 이벤트의 감지·승인·조치 흐름을 정리한 자동 생성 사후 보고서입니다. 독립된 WAF 감사 로그를 대신하지 않습니다.
+
+![장애 대응 타임라인](docs/images/05-incident-timeline.png)
+
 ## Tech Stack
 
 | 구분 | 기술 | 목적 |
@@ -169,6 +199,7 @@ Project 01 BUILD → Project 02 SECURE → Project 03 OBSERVE & RESPOND → [Pro
 
 위의 Mermaid 구성도는 AWS CloudWatch/WAFv2와 외부 서비스(Grafana, Loki, GitHub, Gemini, Discord)를 FastAPI가 연계하는 처리 흐름을 나타냅니다. 완전한 자동 보안 통제나 무인 운영을 의미하지 않습니다. WAF 조치는 운영자 승인과 위험 검사를 거치며, 테스트용 이벤트와 실제 공격을 구분합니다.
 
-검증 화면은 노션 원본에 보관합니다. GitHub에는 코드와 재현에 필요한 설정, 연동 구조를 기록합니다.
+검증 화면의 원본은 노션에, 공개용 사본은 GitHub 갤러리에 보관합니다. GitHub에서는 코드와 연동 구조를 함께 확인할 수 있습니다.
 
 [구축 및 검증 화면 목록](docs/evidence-gallery.md)
+
