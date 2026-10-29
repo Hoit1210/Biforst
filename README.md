@@ -1,18 +1,14 @@
-# Bifrost
+# Project 03. Bifrost
 
-> Context-Aware SRE & Security Incident Response Platform
+> **로그·메트릭·배포 이력을 하나의 장애 Context로 수집하고, Gemini 분석과 운영자 승인·위험 검증을 거쳐 AWS WAFv2 대응까지 연결하는 SRE/보안 운영 자동화 프로토타입입니다.**
 
-Bifrost correlates monitoring and operational signals into a single incident context, assists root-cause analysis with Gemini, and connects the result to a controlled response flow:
+## Project Context
 
-**Grafana Alert → FastAPI Webhook → Context Builder → Gemini Analysis → Human Approval → Risk Check → AWS WAFv2 → Post-mortem**
+이전 [Heimdall 프로젝트](https://github.com/Hoit1210/Heimdall-project)에서는 외부 AI API와 데이터 흐름에 대한 통제를 강화했습니다. 하지만 운영 과정에서 로그, CPU 메트릭, 코드 변경 이력이 서로 분리되어 있어 장애 발생 시 운영자가 원인을 연결해 판단해야 하는 문제가 남았습니다.
 
-This repository is the implementation evidence for Project 03 in my cloud/SRE portfolio. The design intentionally keeps the AI model out of the final authority path: AI suggests, an operator approves, and a policy guardrail validates the action before infrastructure changes are attempted.
+Bifrost는 **알림 수신 → 관련 정보 수집 → AI 기반 원인 후보 분석 → 사람의 승인 → 위험 확인 → 제한된 조치 → 사후 기록** 흐름으로 이 문제에 접근했습니다.
 
-## Why this project
-
-Project 02 focused on controlling external AI API boundaries. The next problem was operational: metrics, logs, deployment history, and security events existed in separate tools, so incident interpretation and response still required manual correlation.
-
-Bifrost addresses that gap by building a context-aware incident pipeline rather than another alert-only bot.
+**중요한 설계 원칙:** AI가 인프라 변경을 직접 결정하지 않습니다. AI는 분석을 제안하고, 운영자가 승인하며, 정책 검증을 통과한 조치만 시도합니다.
 
 ## Architecture
 
@@ -20,93 +16,95 @@ Bifrost addresses that gap by building a context-aware incident pipeline rather 
 flowchart TD
     A[Grafana Alert] --> B[FastAPI /alert]
     B --> C[Context Builder]
-    C --> C1[Loki Logs]
-    C --> C2[CloudWatch Metrics]
-    C --> C3[GitHub Commit History]
+    C --> L[Loki Logs]
+    C --> M[CloudWatch CPU]
+    C --> H[GitHub Recent Commits]
     C --> D[Gemini Analysis]
-    D -->|success| E[Discord Report]
-    D -->|API failure| F[Rule-based Fallback]
+    D -->|정상| E[Discord Report]
+    D -->|API 오류| F[Rule-based Fallback]
     F --> E
     E --> G[Operator Approve / Reject]
-    G --> H[Risk Check]
-    H -->|protected target| I[Reject Action]
-    H -->|allowed target| J[AWS WAFv2 IP Set]
-    J --> K[Async Post-mortem]
-    K --> E
-    B --> L[incident_data.json]
-    L --> M[Streamlit Dashboard]
+    G --> K[Risk Check]
+    K -->|보호 대상| X[조치 거부]
+    K -->|허용 대상| W[AWS WAFv2 IP Set]
+    W --> P[Async Post-mortem]
+    B --> J[incident_data.json]
+    J --> S[Streamlit Dashboard]
 ```
 
-Detailed architecture notes: [`docs/architecture.md`](docs/architecture.md)
+상세 설계: [Architecture](docs/architecture.md)
 
-## Core engineering decisions
+## Tech Stack
 
-| Problem | Decision | Reason |
+| 구분 | 기술 | 목적 |
 |---|---|---|
-| Alert alone lacks context | Context Builder | Correlate logs, metrics, and recent deployment history before analysis |
-| AI action is unsafe as final authority | Human-in-the-loop approval | Keep infrastructure changes under operator control |
-| Operator approval can still be wrong | Risk Check | Reject protected/private targets before remediation |
-| Security response needs an explicit IP control point | AWS WAFv2 IP Set | Apply an approved IP-based control through AWS API |
-| External LLMs can fail | Rule-based fallback | Keep the incident workflow usable during Gemini failures |
-| Incident documentation is repetitive | Async Post-mortem | Record timeline and final action without blocking the approval response |
+| API / Orchestration | Python, FastAPI | 알림 수신과 대응 흐름 제어 |
+| Observability | Grafana, Loki, Amazon CloudWatch | 알림·로그·메트릭 수집 |
+| Change Context | GitHub API | 최근 커밋 이력 수집 |
+| AI Analysis | Gemini API | 장애 원인 후보와 대응 권고 |
+| Operator Interface | Discord | 보고와 승인/거부 |
+| Remediation | AWS WAFv2 IP Set | 승인된 IP 기반 통제 |
+| Dashboard | Streamlit | 최신 Incident Context 조회 |
 
-## Implemented flows
+## Core Engineering Decisions
 
-### 1. Alert and context collection
+| 운영 문제 | 설계 선택 | 이유 |
+|---|---|---|
+| 단일 알림만으로는 판단 어려움 | Context Builder | 여러 운영 신호를 함께 제공 |
+| AI 오판이 인프라 변경으로 이어질 위험 | Human-in-the-loop | 최종 판단을 운영자에게 유지 |
+| 사람도 잘못된 대상을 승인할 수 있음 | Risk Check | 사설/보호 IP 대역 차단 |
+| 외부 LLM 장애 | Rule-based Fallback | 분석 품질은 낮아져도 흐름 중단 방지 |
+| 반복적인 장애 보고 작성 | Async Post-mortem | 승인 처리와 후속 기록 분리 |
 
-`/alert` receives a Grafana-compatible payload, extracts the alert and target IP, then gathers:
+## Implementation & Validation
 
-- Loki logs
-- CloudWatch EC2 CPU metric
-- recent GitHub commit history
+### 1. 장애 알림과 Context 수집
+- `/alert`가 Grafana 호환 Payload를 수신합니다.
+- Loki 로그, CloudWatch EC2 CPU 메트릭, GitHub 최근 커밋을 Context로 모읍니다.
+- 최신 Incident Snapshot은 `incident_data.json`에 기록하고 대시보드에서 표시합니다.
+- 서로 다른 신호를 함께 제공하지만, 이 자체가 **장애 원인을 확정적으로 증명하는 것은 아닙니다.**
 
-The result is written to `incident_data.json` for the dashboard and used as the prompt context for incident analysis.
+### 2. AI 분석과 장애 대응 지속성
+- Gemini가 장애 원인 후보(RCA)와 조치 권고를 작성합니다.
+- API 호출에 실패하면 규칙 기반 Fallback을 사용합니다. Fallback은 운영 흐름 유지를 위한 것이며 Gemini와 동일한 분석 정확도를 보장하지 않습니다.
 
-### 2. AI-assisted RCA with fallback
+### 3. 운영자 승인과 안전 검증
+- Discord 보고에 승인/거부 URL을 포함합니다.
+- 승인 후에도 `is_protected_ip()`에서 사설 주소·Whitelist 대상을 확인해 보호 대상이면 조치를 거부합니다.
+- 통과한 대상에 한해 AWS WAFv2 IP Set 갱신을 시도합니다. 실제 차단 효과는 해당 IP Set의 WAF 연결과 설정에 따라 달라집니다.
 
-Gemini produces a concise RCA candidate and action items. If the API is unavailable, Bifrost returns a reduced-fidelity rule-based fallback instead of stopping the incident pipeline.
+### 4. 대시보드 / 사후 보고
+- Streamlit은 최신 알림, 대상 IP, CPU 메트릭, 분석 내용, 로그, 배포 이력, 대응 상태를 표시합니다.
+- 조치 후 별도 비동기 흐름으로 Discord에 Incident Timeline 및 결과를 전달합니다.
 
-### 3. Human approval and risk validation
+### 5. Kubernetes 복구 검증 범위
+- `/eks-alert`는 **시뮬레이션한 Pod 장애 이벤트**를 수신하는 고급 검증용 Endpoint입니다.
+- 실제 Pod 교체·복구는 Kubernetes 기본 Controller가 담당합니다. Bifrost가 직접 EKS를 복구했다고 주장하지 않습니다.
 
-The Discord notification contains approve/reject links. Even after approval, private-network and configured whitelist ranges are rejected by `is_protected_ip()` before remediation is attempted.
+## Troubleshooting
 
-### 4. AWS WAFv2 remediation
+| 문제 | 대응 | 확인할 점 |
+|---|---|---|
+| Gemini `503 UNAVAILABLE` | 규칙 기반 Fallback | 분석 수준 저하를 명시 |
+| Loki 응답이 비어 있거나 JSON 파싱 실패 | 상태·응답 확인, 예외 처리 | 전체 Incident Pipeline 중단 방지 |
+| Discord Markdown 승인 링크 사용성 문제 | 원시 URL 사용 | 실서비스에서는 인증·서명된 승인 방식 필요 |
 
-For an approved, non-protected target, Bifrost updates a configured WAFv2 IP Set. The repository does **not** claim that an IP block is permanent or globally effective; its scope depends on the WAF resource association and runtime configuration.
+상세 내용: [Troubleshooting](docs/troubleshooting.md)
 
-### 5. Post-mortem
-
-After a successful action, Bifrost asynchronously sends a concise incident timeline and final result to Discord.
-
-### 6. Dashboard
-
-`dashboard.py` visualizes the latest alert, target, CPU metric, analysis, Loki context, deployment history, and current response status.
-
-### 7. Kubernetes recovery validation
-
-`/eks-alert` is an **advanced validation endpoint** for a simulated Pod failure event. Recovery itself belongs to Kubernetes native reconciliation; Bifrost only handles the incident/RCA notification side in this repository.
-
-## Repository structure
+## Repository Structure
 
 ```text
-.
-├── main.py
-├── dashboard.py
-├── requirements.txt
-├── .env.example
-├── .gitignore
-├── SECURITY.md
-├── docs/
-│   ├── architecture.md
-│   └── troubleshooting.md
-└── scripts/
-    ├── red_team_simulation.py
-    └── eks_event_simulation.py
+main.py                    # API 및 대응 파이프라인
+dashboard.py               # Streamlit Dashboard
+scripts/                   # 통제된 장애/공격 이벤트 시뮬레이션
+docs/                      # 아키텍처 및 Troubleshooting
+requirements.txt
+.env.example
+SECURITY.md
+README.md
 ```
 
-## Configuration
-
-Copy the example environment file and supply your own runtime values.
+## Run & Validation
 
 ```bash
 cp .env.example .env
@@ -114,53 +112,33 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Run the dashboard separately:
+별도 터미널에서:
 
 ```bash
 streamlit run dashboard.py
 ```
 
-The repository intentionally contains no real webhook tokens, API keys, AWS access keys, instance identifiers, or public IPs.
-
-## Validation scripts
+시뮬레이션 예제:
 
 ```bash
 python scripts/red_team_simulation.py
 python scripts/eks_event_simulation.py
 ```
 
-The red-team script sends a controlled SSH brute-force **simulation payload** using the documentation-range IP `203.0.113.50`. It does not perform a real attack.
+> Red-Team 스크립트는 문서용 주소(`203.0.113.50`)를 사용하는 **모의 이벤트 전송**으로 실제 공격을 수행하지 않습니다. 실행에 필요한 외부 연동·환경 변수는 각자 설정해야 합니다.
 
-## Reliability cases documented
+## Security & Limitations
 
-- Gemini `503 UNAVAILABLE` → fallback analysis path
-- Loki empty/non-JSON response → context collection continues without failing the entire pipeline
-- Discord approval URL rendering → raw URL form used for reliable operator access
+- 현재 승인 URL은 **프로토타입**으로, 프로덕션 적용 전 HTTPS·인증·권한 확인·서명/만료·재전송 방지가 필요합니다.
+- IP/대역 기반 Risk Check는 자산 소유권, 서비스 중요도 등을 판단하는 완전한 정책 엔진이 아닙니다.
+- `incident_data.json`은 로컬 단일 노드 상태 저장소로, 영속적·고가용성 Incident DB가 아닙니다.
+- WAF 기반 대응은 IP Set을 이용하는 제한된 조치이며 범용 자동 복구 플랫폼이 아닙니다.
+- 비밀값, Webhook Token, AWS Access Key 및 실제 운영 식별자는 공개하지 않습니다. [SECURITY.md](SECURITY.md) 참고.
 
-See [`docs/troubleshooting.md`](docs/troubleshooting.md).
+## Portfolio & Next Step
 
-## Limitations
+[Project 03 Bifrost Notion Portfolio](https://app.notion.com/p/Bifrost-AI-SRE-3ac59c94122580c8a70fd95e76cf7b71)
 
-- Approval links are a prototype interaction model and should be replaced with authenticated, signed, HTTPS-protected actions in production.
-- The current risk policy is IP/range based and does not model ownership, service criticality, or business context.
-- `incident_data.json` is local single-node state, not a durable or highly available incident store.
-- LLM output is advisory and can be incomplete or wrong; fallback mode preserves workflow continuity, not equivalent analysis quality.
-- IP-based WAF remediation is intentionally narrow and is not a general incident-remediation engine.
-- Kubernetes recovery in this repository is represented as validation/simulation; native Kubernetes controllers are responsible for recovery.
+**Project 01 BUILD → Project 02 SECURE → Project 03 OBSERVE & RESPOND → [Project 04 AUTOMATE](https://github.com/Hoit1210/SRE_project)**
 
-## Security
-
-See [`SECURITY.md`](SECURITY.md). If a secret was ever committed in an older revision, revoking/rotating it is required even if the current branch no longer contains it.
-
-## Portfolio documentation
-
-Full engineering narrative, screenshots, decisions, validation, and limitations:
-
-**Notion — Project 03 Bifrost**  
-https://app.notion.com/p/Bifrost-AI-SRE-3ac59c94122580c8a70fd95e76cf7b71
-
----
-
-### Portfolio journey
-
-**Project 01 — BUILD → Project 02 — SECURE → Project 03 — OBSERVE & RESPOND → Project 04 — AUTOMATE**
+> Bifrost에서는 여러 운영 신호를 연결해 장애에 대응했습니다. 다음 프로젝트에서는 Terraform·GitHub Actions·컨테이너 Health Check를 이용한 인프라 배포 및 복구 작업 자동화를 다룹니다.
