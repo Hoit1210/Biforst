@@ -170,3 +170,5 @@ Project 01 BUILD → Project 02 SECURE → Project 03 OBSERVE & RESPOND → [Pro
 위의 Mermaid 구성도는 AWS CloudWatch/WAFv2와 외부 서비스(Grafana, Loki, GitHub, Gemini, Discord)를 FastAPI가 연계하는 처리 흐름을 나타냅니다. 완전한 자동 보안 통제나 무인 운영을 의미하지 않습니다. WAF 조치는 운영자 승인과 위험 검사를 거치며, 테스트용 이벤트와 실제 공격을 구분합니다.
 
 검증 화면은 노션 원본에 보관합니다. GitHub에는 코드와 재현에 필요한 설정, 연동 구조를 기록합니다.
+
+[구축 및 검증 화면 목록](docs/evidence-gallery.md)
