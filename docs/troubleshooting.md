@@ -1,41 +1,15 @@
-# Troubleshooting
+# 문제 해결 기록
 
-## 1. Gemini API returned `503 UNAVAILABLE`
+## Gemini 응답 실패
 
-### Symptom
-Incident analysis could not be generated because the external model API was temporarily unavailable.
+Gemini API 호출에서 503 오류가 발생했습니다. 이때 알림 처리 전체가 멈추지 않도록 규칙 기반 안내 메시지를 반환하는 경로를 추가했습니다. 대체 메시지는 AI 분석과 같은 품질을 보장하지 않습니다.
 
-### Engineering risk
-If the LLM is a hard dependency, a model outage can stop the entire response workflow.
+## Loki 응답 처리
 
-### Resolution
-The analysis function returns a reduced-fidelity fallback message when Gemini is unavailable. Operator approval and the rest of the incident workflow can continue.
+Loki가 빈 본문을 보내거나 JSON 파싱에 실패하던 상황이 있었습니다. 응답 상태를 먼저 확인하고 오류가 나면 로그를 수집하지 못했다는 값을 반환하도록 변경했습니다. 이 경우에도 CloudWatch와 GitHub 정보를 계속 수집할 수 있습니다.
 
-### Lesson
-Fallback mode preserves workflow continuity; it does not provide equivalent analytical quality.
+## Discord 링크 표시
 
----
+승인 URL을 Markdown 링크로 표시했을 때 접근이 불편해 원래 URL 형태로 전달했습니다. 인증·서명 없는 승인 링크는 공개 서비스에 사용할 수 없습니다.
 
-## 2. Loki returned an empty or invalid response
-
-### Symptom
-Early tests produced empty response bodies or JSON parsing failures while the log pipeline was not ready.
-
-### Resolution
-The collector now checks the HTTP status and response body before parsing, catches decoding/network errors, and returns an explicit `context unavailable` value instead of failing the full Context Builder.
-
-### Lesson
-One missing telemetry source should degrade incident context, not crash the incident pipeline.
-
----
-
-## 3. Discord approval links were unreliable as Markdown links
-
-### Symptom
-HTTP approval URLs containing an IP address and port were not consistently convenient to use when embedded as Markdown links.
-
-### Resolution
-The notification sends raw approve/reject URLs.
-
-### Production follow-up
-Raw query-string approval URLs are still only a prototype. Production approval should use HTTPS, authentication, signed/expiring actions, authorization, and replay protection.
+[노션의 실제 구축 및 테스트 기록](https://app.notion.com/p/3b059c94122580edb20ccda52d769de7)
