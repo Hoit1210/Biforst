@@ -142,3 +142,26 @@ python scripts/eks_event_simulation.py
 **Project 01 BUILD → Project 02 SECURE → Project 03 OBSERVE & RESPOND → [Project 04 AUTOMATE](https://github.com/Hoit1210/SRE_project)**
 
 > Bifrost에서는 여러 운영 신호를 연결해 장애에 대응했습니다. 다음 프로젝트에서는 Terraform·GitHub Actions·컨테이너 Health Check를 이용한 인프라 배포 및 복구 작업 자동화를 다룹니다.
+
+
+---
+
+## 실제 구축·검증 증거 (Notion 연계)
+
+**[개인 프로젝트 관리 — Project 03 Bifrost](https://app.notion.com/p/3b059c94122580edb20ccda52d769de7)**에 실제 단계별 구현 결과와 화면 캡처가 있습니다.
+
+| 구현 단계 | 노션에 기록된 확인 내용 | 확인할 위치 |
+|---|---|---|
+| 이벤트 수신 | Grafana Alert → FastAPI Webhook 이벤트 전달 | Architecture Evolution / Context-Aware Incident Pipeline |
+| 운영 데이터 연결 | Loki Log + CloudWatch CPU + GitHub Commit History 수집 | Context Builder |
+| AI 분석 | Gemini 기반 원인 후보 및 Action Item 제안 | AI Incident Analysis |
+| 조치 통제 | Discord 승인·거부, 보호 대상 Risk Check, WAF IP Set 갱신 흐름 | Safe Remediation & Risk Control |
+| 실제 장애 대응 예시 | SSH Brute Force **모의 이벤트**부터 WAF 조치 결과까지 Incident Timeline | Result → End-to-End Incident Lifecycle |
+| 시각화 | Streamlit 화면에서 최근 알림·분석·대응 상태 확인 | Result → Bifrost Dashboard |
+| 예외 처리 | Gemini 503, Discord 링크, Loki 응답 오류 사례 | Reliability & Troubleshooting |
+
+### 클라우드 구성 관점
+
+위의 Mermaid 구성도는 **AWS CloudWatch/WAFv2와 외부 서비스(Grafana, Loki, GitHub, Gemini, Discord)를 FastAPI가 연계하는 처리 흐름**을 나타냅니다. 완전한 자동 보안 통제나 무인 운영을 의미하지 않습니다. WAF 조치는 운영자 승인과 위험 검사를 거치며, 테스트용 이벤트와 실제 공격을 구분합니다.
+
+**검증 화면은 노션 원본에 보관합니다.** GitHub에는 코드와 재현에 필요한 설정, 연동 구조를 기록합니다.
